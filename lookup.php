@@ -1,5 +1,5 @@
 <?php
-function find_matches( array $chunks, array $keywords ) {
+function find_matches( array $chunks, array $keywords, int $crop = 500 ) {
     $df = [];
 
     foreach( $chunks as $chunk_id => $chunk ) {
@@ -18,6 +18,12 @@ function find_matches( array $chunks, array $keywords ) {
 
     foreach( $chunks as $chunk_id => $chunk ) {
         foreach( $keywords as $keyword ) {
+            if( $chunk_id != 0 ) {
+                $chunk = substr( $chunk, $crop );
+            }
+            if( $chunk_id != count( $chunks ) - 1 ) {
+                $chunk = substr( $chunk, 0, -$crop );
+            }
             $occurences = substr_count( $chunk, $keyword );
             if( ! isset( $results[$chunk_id] ) ) {
                 $results[$chunk_id] = 0;
