@@ -43,15 +43,13 @@ while( true ) {
     foreach( $matches as $chunk_id => $points ) {
         $answer = answer_question( $chunks[$chunk_id], $question );
 
-        if( isset( $answer->name ) && $answer->name == "give_response" ) {
-            $arguments = json_decode( $answer->arguments, true );
-            $response = $arguments["response"];
-            echo "\n\nGPT: " . $response . "\n\n";
+        if( $answer !== false ) {
+            echo "\n\nGPT: " . $answer->content . "\n\n";
             break;
         }
     }
 
-    if( ! isset( $answer->name ) || $answer->name != "give_response" ) {
+    if( $answer === false ) {
         echo "\n\nGPT: I can't find the answer\n\n";
     }
 }

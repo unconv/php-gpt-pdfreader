@@ -11,20 +11,11 @@ function list_keywords( $keywords ) {
 }
 
 /**
- * Give the response to the user
+ * Call this function if the answer is not found
  *
- * @param string $response The response to the user
+ * @param bool $not_found
  */
-function give_response( string $response ) {
-
-}
-
-/**
- * Get the next excerpt from the PDF
- *
- * @param bool $next Set this to true always
- */
-function next_excerpt( bool $next ) {
+function answer_not_found( bool $not_found = true ) {
 
 }
 
@@ -55,29 +46,33 @@ Use the list_keywords function to respond.";
 function answer_question( string $chunk, string $question ) {
     echo ".";
 
-    $prompt = "```
-$chunk
-```
-
-Based on the above excerpt, what is the answer to the following question?
-
-```
-$question
-```
-
-If the answer to the question is included in the above text, respond with the give_response function. If it is not found in the given text, respond with the next_excerpt function.";
-
     $chatgpt = new ChatGPT( getenv("OPENAI_API_KEY") );
-    $chatgpt->add_function( "give_response" );
-    $chatgpt->add_function( "next_excerpt" );
-    $chatgpt->smessage( "You are trying to find answers to the questions of the user from a PDF file. You will be provided with an excerpt of the PDF file. If the excerpt contains the answer to the question, use the give_response function to tell the answer to the user. Otherwise call the next_excerpt function to get the next excerpt from the PDF." );
-    $chatgpt->umessage( $prompt );
+    $chatgpt->add_function( "answer_not_found" );
+    $chatgpt->smessage( "The user will give you an excerpt from PDF file. Answer the question based on the information in the excerpt. If the answer can not be determined from the excerpt, call the answer_not_found function." );
+    $chatgpt->umessage( "### EXCERPT FROM PDF:\n\n$chunk" );
+    $chatgpt->umessage( $question );
 
     $response = $chatgpt->response( raw_function_response: true );
 
-    if( ! isset( $response->function_call ) ) {
-        return answer_question( $chunk, $question );
+    if( isset( $response->function_call ) ) {
+        return false;
     }
 
-    return $response->function_call;
+    if( empty( $response->content ) ) {
+        return false;
+    }
+
+    if( $chatgpt->version() < 4 && ! gpt3_check( $question, $response->content ) ) {
+        return false;
+    }
+
+    return $response;
+}
+
+function gpt3_check( $question, $answer ) {
+    $chatgpt = new ChatGPT( getenv("OPENAI_API_KEY") );
+    $chatgpt->umessage( "Question: \"$question\"\nAnswer: \"$answer\"\n\nAnswer YES if the answer is similar to 'the answer to the question was not found in the information provided' or 'the excerpt does not mention that'. Answer only YES or NO" );
+    $response = $chatgpt->response();
+
+    return stripos( $response->content, "yes" ) === false;
 }
