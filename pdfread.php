@@ -11,15 +11,20 @@ function pdf_to_text( $filename ) {
 }
 
 function chunk_text_file( $filename, $chunk_size = 4000, $overlap = 1000 ) {
+    if( $overlap > $chunk_size ) {
+        throw new \Exception( "Overlap must be smaller than chunk size" );
+    }
+
     $chunks = [];
 
     $file = fopen( $filename, "r" );
     while( ! feof( $file ) ) {
         $chunk = fread( $file, $chunk_size );
         $chunks[] = $chunk;
-        if( ftell( $file ) >= $overlap && strlen( $chunk ) >= $chunk_size ) {
-            fseek( $file, -$overlap, SEEK_CUR );
+        if( feof( $file ) ) {
+            break;
         }
+        fseek( $file, -$overlap, SEEK_CUR );
     }
 
     return $chunks;
