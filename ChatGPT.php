@@ -4,6 +4,8 @@ class ChatGPT {
     protected array $functions = [];
     protected $savefunction = null;
     protected $loadfunction = null;
+    protected bool $loaded = false;
+    protected $function_call = "auto";
     protected string $model = "gpt-3.5-turbo";
 
     public function __construct(
@@ -18,6 +20,7 @@ class ChatGPT {
     public function load() {
         if( is_callable( $this->loadfunction ) ) {
             $this->messages = ($this->loadfunction)( $this->chat_id );
+            $this->loaded = true;
         }
     }
 
@@ -34,6 +37,20 @@ class ChatGPT {
         return floatval( $matches[1] );
     }
 
+    public function force_function_call( string $function_name, ?array $arguments = null ) {
+        if( $function_name === "auto" ) {
+            if( ! is_null( $arguments ) ) {
+                throw new \Exception( "Arguments must not be set when function_call is 'auto'" );
+            }
+            $this->function_call = "auto";
+        } else {
+            $this->function_call = [
+                "name" => $function_name,
+                "arguments" => $arguments,
+            ];
+        }
+    }
+
     public function smessage( string $system_message ) {
         $message = [
             "role" => "system",
@@ -43,7 +60,7 @@ class ChatGPT {
         $this->messages[] = $message;
 
         if( is_callable( $this->savefunction ) ) {
-            ($this->savefunction)( $message, $this->chat_id );
+            ($this->savefunction)( (object) $message, $this->chat_id );
         }
     }
     
@@ -56,7 +73,7 @@ class ChatGPT {
         $this->messages[] = $message;
 
         if( is_callable( $this->savefunction ) ) {
-            ($this->savefunction)( $message, $this->chat_id );
+            ($this->savefunction)( (object) $message, $this->chat_id );
         }
     }
     
@@ -69,7 +86,7 @@ class ChatGPT {
         $this->messages[] = $message;
 
         if( is_callable( $this->savefunction ) ) {
-            ($this->savefunction)( $message, $this->chat_id );
+            ($this->savefunction)( (object) $message, $this->chat_id );
         }
     }
     
@@ -78,7 +95,7 @@ class ChatGPT {
         string $function_arguments
     ) {
         $message = [
-            "role" => "assisant",
+            "role" => "assistant",
             "content" => null,
             "function_call" => [
                 "name" => $function_name,
@@ -89,7 +106,7 @@ class ChatGPT {
         $this->messages[] = $message;
 
         if( is_callable( $this->savefunction ) ) {
-            ($this->savefunction)( $message, $this->chat_id );
+            ($this->savefunction)( (object) $message, $this->chat_id );
         }
     }
     
@@ -106,11 +123,11 @@ class ChatGPT {
         $this->messages[] = $message;
 
         if( is_callable( $this->savefunction ) ) {
-            ($this->savefunction)( $message, $this->chat_id );
+            ($this->savefunction)( (object) $message, $this->chat_id );
         }
     }
 
-    public function response( bool $raw_function_response = false ) {   
+    public function response( bool $raw_function_response = false ) {
         $fields = [
             "model" => $this->model,
             "messages" => $this->messages,
@@ -120,7 +137,7 @@ class ChatGPT {
 
         if( ! empty( $functions ) ) {
             $fields["functions"] = $functions;
-            $fields["function_call"] = "auto";
+            $fields["function_call"] = $this->function_call;
         }
         
         // make ChatGPT API request
@@ -154,7 +171,7 @@ class ChatGPT {
         $this->messages[] = $message;
 
         if( is_callable( $this->savefunction ) ) {
-            ($this->savefunction)( $message, $this->chat_id );
+            ($this->savefunction)( (object) $message, $this->chat_id );
         }
     
         $message = end( $this->messages );
@@ -338,8 +355,11 @@ class ChatGPT {
         return $this->messages;
     }
 
-    public function loadfunction( callable $loadfunction ) {
+    public function loadfunction( callable $loadfunction, bool $autoload = true ) {
         $this->loadfunction = $loadfunction;
+        if( $autoload && ! $this->loaded ) {
+            $this->load();
+        }
     }
 
     public function savefunction( callable $savefunction ) {
